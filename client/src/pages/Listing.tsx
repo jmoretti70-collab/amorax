@@ -183,9 +183,7 @@ export default function Listing() {
               </Button>
             </Link>
             <Link href="/" className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg gradient-pink flex items-center justify-center">
-                <Heart className="w-4 h-4 text-white" />
-              </div>
+              <img src="/logo.png" alt="Amorax" className="w-8 h-8 rounded-lg object-cover" />
               <span className="text-lg font-bold text-gradient hidden sm:block">Amorax</span>
             </Link>
           </div>
