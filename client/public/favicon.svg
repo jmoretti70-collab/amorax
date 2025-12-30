@@ -1,12 +1,47 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
   <defs>
-    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#e11d74;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#be185d;stop-opacity:1" />
+    <linearGradient id="berryGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#6B21A8"/>
+      <stop offset="50%" style="stop-color:#A855F7"/>
+      <stop offset="100%" style="stop-color:#EC4899"/>
+    </linearGradient>
+    <linearGradient id="leafGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#166534"/>
+      <stop offset="100%" style="stop-color:#22C55E"/>
     </linearGradient>
   </defs>
-  <rect width="100" height="100" rx="20" fill="#0a0a0f"/>
-  <path d="M50 25 C35 25 25 38 25 50 C25 70 50 80 50 80 C50 80 75 70 75 50 C75 38 65 25 50 25 Z" fill="url(#gradient)"/>
-  <path d="M50 35 C42 35 35 42 35 50 C35 62 50 70 50 70 C50 70 65 62 65 50 C65 42 58 35 50 35 Z" fill="#0a0a0f"/>
-  <circle cx="50" cy="50" r="8" fill="url(#gradient)"/>
+  
+  <!-- Leaf/stem -->
+  <path d="M50 8 Q60 5 65 15 Q55 12 50 18" fill="url(#leafGradient)"/>
+  
+  <!-- Berry drupelets forming heart shape -->
+  <!-- Top row -->
+  <circle cx="35" cy="30" r="10" fill="url(#berryGradient)" opacity="0.9"/>
+  <circle cx="50" cy="25" r="9" fill="url(#berryGradient)" opacity="0.95"/>
+  <circle cx="65" cy="30" r="10" fill="url(#berryGradient)" opacity="0.9"/>
+  
+  <!-- Second row -->
+  <circle cx="28" cy="42" r="10" fill="url(#berryGradient)" opacity="0.85"/>
+  <circle cx="42" cy="40" r="9" fill="url(#berryGradient)" opacity="0.9"/>
+  <circle cx="58" cy="40" r="9" fill="url(#berryGradient)" opacity="0.9"/>
+  <circle cx="72" cy="42" r="10" fill="url(#berryGradient)" opacity="0.85"/>
+  
+  <!-- Third row -->
+  <circle cx="32" cy="55" r="9" fill="url(#berryGradient)" opacity="0.8"/>
+  <circle cx="50" cy="52" r="10" fill="url(#berryGradient)" opacity="0.95"/>
+  <circle cx="68" cy="55" r="9" fill="url(#berryGradient)" opacity="0.8"/>
+  
+  <!-- Fourth row -->
+  <circle cx="38" cy="67" r="8" fill="url(#berryGradient)" opacity="0.85"/>
+  <circle cx="50" cy="65" r="9" fill="url(#berryGradient)" opacity="0.9"/>
+  <circle cx="62" cy="67" r="8" fill="url(#berryGradient)" opacity="0.85"/>
+  
+  <!-- Bottom point of heart -->
+  <circle cx="45" cy="78" r="7" fill="url(#berryGradient)" opacity="0.8"/>
+  <circle cx="55" cy="78" r="7" fill="url(#berryGradient)" opacity="0.8"/>
+  <circle cx="50" cy="88" r="6" fill="url(#berryGradient)" opacity="0.9"/>
+  
+  <!-- Shine effects -->
+  <circle cx="38" cy="28" r="3" fill="white" opacity="0.4"/>
+  <circle cx="62" cy="28" r="3" fill="white" opacity="0.4"/>
 </svg>

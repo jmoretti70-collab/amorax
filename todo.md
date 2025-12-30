@@ -40,9 +40,9 @@
 - [ ] Gestão de assinaturas - pendente integração
 
 ## Fase 7: PWA e Otimizações
-- [ ] Configuração do manifest.json
-- [ ] Service Worker para funcionamento offline
-- [ ] Ícones e splash screens
+- [x] Configuração do manifest.json
+- [x] Service Worker para funcionamento offline
+- [x] Ícones e splash screens
 - [ ] Otimização de performance
 - [ ] SEO e meta tags
 
@@ -51,3 +51,16 @@
 - [x] Modelo de negócios e DRE
 - [x] Documentação legal e fiscal
 - [ ] Manual do anunciante
+
+
+## Fase 9: Atualização de Logotipo e Sistema de Agendamento
+- [x] Atualizar logotipo em todo o projeto (Conceito 1 - Amora Coração)
+- [x] Criar favicon com novo logotipo
+- [x] Atualizar manifest.json com novo logotipo
+- [x] Criar tabelas de agendamento no banco de dados
+- [x] Implementar APIs de agendamento (criar, listar, cancelar, confirmar)
+- [x] Criar página de agendamento para usuários
+- [x] Criar gestão de agenda no dashboard do anunciante
+- [x] Configurar disponibilidade de horários
+- [ ] Sistema de notificações de agendamento
+- [ ] Testes do sistema de agendamento

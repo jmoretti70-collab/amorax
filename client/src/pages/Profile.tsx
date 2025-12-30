@@ -517,6 +517,12 @@ export default function Profile() {
               {/* Contact Buttons */}
               <div className="space-y-3">
                 <Button className="w-full gradient-pink border-0 h-12 text-lg" asChild>
+                  <Link href={`/agendar/${profile.slug}`}>
+                    <Calendar className="w-5 h-5 mr-2" />
+                    Agendar Encontro
+                  </Link>
+                </Button>
+                <Button className="w-full bg-green-600 hover:bg-green-700 border-0 h-12 text-lg" asChild>
                   <a href={`https://wa.me/55${profile.whatsapp}`} target="_blank" rel="noopener noreferrer">
                     <MessageCircle className="w-5 h-5 mr-2" />
                     WhatsApp
@@ -561,10 +567,15 @@ export default function Profile() {
             <div className="font-bold">R$ {profile.pricePerHour}/h</div>
             <div className="text-xs text-muted-foreground">{profile.neighborhood}</div>
           </div>
-          <Button className="gradient-pink border-0 flex-1" asChild>
+          <Button className="gradient-pink border-0" asChild>
+            <Link href={`/agendar/${profile.slug}`}>
+              <Calendar className="w-4 h-4 mr-2" />
+              Agendar
+            </Link>
+          </Button>
+          <Button className="bg-green-600 hover:bg-green-700 border-0" asChild>
             <a href={`https://wa.me/55${profile.whatsapp}`} target="_blank" rel="noopener noreferrer">
-              <MessageCircle className="w-4 h-4 mr-2" />
-              WhatsApp
+              <MessageCircle className="w-4 h-4" />
             </a>
           </Button>
         </div>

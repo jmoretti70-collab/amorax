@@ -11,7 +11,11 @@ import {
   subscriptionPlans, 
   verificationRequests, 
   favorites,
-  profileViews 
+  profileViews,
+  appointments,
+  availabilitySlots,
+  blockedDates,
+  appointmentMessages
 } from "../drizzle/schema";
 import { eq, and, desc, like, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
@@ -613,6 +617,444 @@ export const appRouter = router({
         });
 
         return { success: true };
+      }),
+  }),
+
+  // Appointments Router - Sistema de Agendamento
+  appointments: router({
+    // Get available slots for a profile on a specific date
+    getAvailableSlots: publicProcedure
+      .input(z.object({
+        profileId: z.number(),
+        date: z.string(), // YYYY-MM-DD format
+      }))
+      .query(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+        const dateObj = new Date(input.date);
+        const dayOfWeek = dateObj.getDay();
+
+        // Get availability slots for this day
+        const slots = await db
+          .select()
+          .from(availabilitySlots)
+          .where(and(
+            eq(availabilitySlots.profileId, input.profileId),
+            eq(availabilitySlots.dayOfWeek, dayOfWeek),
+            eq(availabilitySlots.isActive, true)
+          ));
+
+        // Get existing appointments for this date
+        const startOfDay = new Date(input.date);
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date(input.date);
+        endOfDay.setHours(23, 59, 59, 999);
+
+        const existingAppointments = await db
+          .select()
+          .from(appointments)
+          .where(and(
+            eq(appointments.profileId, input.profileId),
+            sql`${appointments.appointmentDate} >= ${startOfDay}`,
+            sql`${appointments.appointmentDate} <= ${endOfDay}`,
+            sql`${appointments.status} NOT IN ('cancelled', 'no_show')`
+          ));
+
+        // Check if date is blocked
+        const blocked = await db
+          .select()
+          .from(blockedDates)
+          .where(and(
+            eq(blockedDates.profileId, input.profileId),
+            sql`DATE(${blockedDates.date}) = ${input.date}`
+          ));
+
+        return {
+          slots,
+          existingAppointments,
+          isBlocked: blocked.length > 0,
+          blockedReason: blocked[0]?.reason
+        };
+      }),
+
+    // Create new appointment
+    create: publicProcedure
+      .input(z.object({
+        profileId: z.number(),
+        clientName: z.string().min(2),
+        clientPhone: z.string().min(10),
+        clientEmail: z.string().email().optional(),
+        appointmentDate: z.string(), // ISO date string
+        duration: z.number().min(60).default(60), // minutes
+        serviceType: z.string().optional(),
+        locationType: z.enum(["advertiser_place", "client_place", "hotel"]).default("advertiser_place"),
+        locationAddress: z.string().optional(),
+        clientNotes: z.string().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+        // Get profile to calculate estimated price
+        const profile = await db
+          .select()
+          .from(advertiserProfiles)
+          .where(eq(advertiserProfiles.id, input.profileId))
+          .limit(1);
+
+        if (!profile[0]) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Profile not found" });
+        }
+
+        const hourlyRate = parseFloat(profile[0].pricePerHour || "0");
+        const estimatedPrice = (hourlyRate * input.duration) / 60;
+
+        const result = await db.insert(appointments).values({
+          profileId: input.profileId,
+          clientName: input.clientName,
+          clientPhone: input.clientPhone,
+          clientEmail: input.clientEmail,
+          appointmentDate: new Date(input.appointmentDate),
+          duration: input.duration,
+          serviceType: input.serviceType,
+          locationType: input.locationType,
+          locationAddress: input.locationAddress,
+          clientNotes: input.clientNotes,
+          estimatedPrice: String(estimatedPrice),
+          status: "pending",
+        });
+
+        return { success: true, appointmentId: (result as any)[0]?.insertId };
+      }),
+
+    // Get appointments for advertiser
+    listForAdvertiser: protectedProcedure
+      .input(z.object({
+        profileId: z.number(),
+        status: z.enum(["pending", "confirmed", "cancelled", "completed", "no_show", "all"]).optional(),
+        startDate: z.string().optional(),
+        endDate: z.string().optional(),
+        page: z.number().default(1),
+        limit: z.number().default(20),
+      }))
+      .query(async ({ ctx, input }) => {
+        const db = await getDb();
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+        // Verify ownership
+        const profile = await db
+          .select()
+          .from(advertiserProfiles)
+          .where(and(
+            eq(advertiserProfiles.id, input.profileId),
+            eq(advertiserProfiles.userId, ctx.user.id)
+          ))
+          .limit(1);
+
+        if (!profile[0]) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Not authorized" });
+        }
+
+        const conditions = [eq(appointments.profileId, input.profileId)];
+
+        if (input.status && input.status !== "all") {
+          conditions.push(eq(appointments.status, input.status));
+        }
+        if (input.startDate) {
+          conditions.push(sql`${appointments.appointmentDate} >= ${new Date(input.startDate)}`);
+        }
+        if (input.endDate) {
+          conditions.push(sql`${appointments.appointmentDate} <= ${new Date(input.endDate)}`);
+        }
+
+        const offset = (input.page - 1) * input.limit;
+
+        const result = await db
+          .select()
+          .from(appointments)
+          .where(and(...conditions))
+          .orderBy(desc(appointments.appointmentDate))
+          .limit(input.limit)
+          .offset(offset);
+
+        const countResult = await db
+          .select({ count: sql<number>`count(*)` })
+          .from(appointments)
+          .where(and(...conditions));
+
+        return {
+          appointments: result,
+          total: countResult[0]?.count || 0,
+          page: input.page,
+          totalPages: Math.ceil((countResult[0]?.count || 0) / input.limit)
+        };
+      }),
+
+    // Update appointment status (confirm, cancel, complete)
+    updateStatus: protectedProcedure
+      .input(z.object({
+        appointmentId: z.number(),
+        status: z.enum(["confirmed", "cancelled", "completed", "no_show"]),
+        cancellationReason: z.string().optional(),
+        advertiserNotes: z.string().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const db = await getDb();
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+        // Get appointment and verify ownership
+        const appointment = await db
+          .select()
+          .from(appointments)
+          .where(eq(appointments.id, input.appointmentId))
+          .limit(1);
+
+        if (!appointment[0]) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Appointment not found" });
+        }
+
+        const profile = await db
+          .select()
+          .from(advertiserProfiles)
+          .where(and(
+            eq(advertiserProfiles.id, appointment[0].profileId),
+            eq(advertiserProfiles.userId, ctx.user.id)
+          ))
+          .limit(1);
+
+        if (!profile[0]) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Not authorized" });
+        }
+
+        const updateData: Record<string, unknown> = { status: input.status };
+
+        if (input.status === "confirmed") {
+          updateData.confirmedAt = new Date();
+        } else if (input.status === "cancelled") {
+          updateData.cancelledAt = new Date();
+          updateData.cancelledBy = "advertiser";
+          updateData.cancellationReason = input.cancellationReason;
+        } else if (input.status === "completed") {
+          updateData.completedAt = new Date();
+        }
+
+        if (input.advertiserNotes) {
+          updateData.advertiserNotes = input.advertiserNotes;
+        }
+
+        await db
+          .update(appointments)
+          .set(updateData)
+          .where(eq(appointments.id, input.appointmentId));
+
+        return { success: true };
+      }),
+
+    // Get single appointment details
+    getById: protectedProcedure
+      .input(z.object({ appointmentId: z.number() }))
+      .query(async ({ ctx, input }) => {
+        const db = await getDb();
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+        const appointment = await db
+          .select()
+          .from(appointments)
+          .where(eq(appointments.id, input.appointmentId))
+          .limit(1);
+
+        if (!appointment[0]) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Appointment not found" });
+        }
+
+        // Get messages
+        const messages = await db
+          .select()
+          .from(appointmentMessages)
+          .where(eq(appointmentMessages.appointmentId, input.appointmentId))
+          .orderBy(appointmentMessages.createdAt);
+
+        return {
+          ...appointment[0],
+          messages
+        };
+      }),
+
+    // Send message about appointment
+    sendMessage: protectedProcedure
+      .input(z.object({
+        appointmentId: z.number(),
+        message: z.string().min(1),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const db = await getDb();
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+        await db.insert(appointmentMessages).values({
+          appointmentId: input.appointmentId,
+          senderType: "advertiser",
+          message: input.message,
+        });
+
+        return { success: true };
+      }),
+  }),
+
+  // Availability Router - Gerenciar disponibilidade
+  availability: router({
+    // Get availability slots for a profile
+    getSlots: protectedProcedure
+      .input(z.object({ profileId: z.number() }))
+      .query(async ({ ctx, input }) => {
+        const db = await getDb();
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+        // Verify ownership
+        const profile = await db
+          .select()
+          .from(advertiserProfiles)
+          .where(and(
+            eq(advertiserProfiles.id, input.profileId),
+            eq(advertiserProfiles.userId, ctx.user.id)
+          ))
+          .limit(1);
+
+        if (!profile[0]) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Not authorized" });
+        }
+
+        const slots = await db
+          .select()
+          .from(availabilitySlots)
+          .where(eq(availabilitySlots.profileId, input.profileId))
+          .orderBy(availabilitySlots.dayOfWeek, availabilitySlots.startTime);
+
+        return slots;
+      }),
+
+    // Set availability slots
+    setSlots: protectedProcedure
+      .input(z.object({
+        profileId: z.number(),
+        slots: z.array(z.object({
+          dayOfWeek: z.number().min(0).max(6),
+          startTime: z.string(), // HH:MM
+          endTime: z.string(), // HH:MM
+          isActive: z.boolean().default(true),
+        })),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const db = await getDb();
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+        // Verify ownership
+        const profile = await db
+          .select()
+          .from(advertiserProfiles)
+          .where(and(
+            eq(advertiserProfiles.id, input.profileId),
+            eq(advertiserProfiles.userId, ctx.user.id)
+          ))
+          .limit(1);
+
+        if (!profile[0]) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Not authorized" });
+        }
+
+        // Delete existing slots
+        await db
+          .delete(availabilitySlots)
+          .where(eq(availabilitySlots.profileId, input.profileId));
+
+        // Insert new slots
+        if (input.slots.length > 0) {
+          await db.insert(availabilitySlots).values(
+            input.slots.map(slot => ({
+              profileId: input.profileId,
+              dayOfWeek: slot.dayOfWeek,
+              startTime: slot.startTime,
+              endTime: slot.endTime,
+              isActive: slot.isActive,
+            }))
+          );
+        }
+
+        return { success: true };
+      }),
+
+    // Get blocked dates
+    getBlockedDates: protectedProcedure
+      .input(z.object({
+        profileId: z.number(),
+        startDate: z.string(),
+        endDate: z.string(),
+      }))
+      .query(async ({ ctx, input }) => {
+        const db = await getDb();
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+        const blocked = await db
+          .select()
+          .from(blockedDates)
+          .where(and(
+            eq(blockedDates.profileId, input.profileId),
+            sql`${blockedDates.date} >= ${new Date(input.startDate)}`,
+            sql`${blockedDates.date} <= ${new Date(input.endDate)}`
+          ));
+
+        return blocked;
+      }),
+
+    // Block/unblock date
+    toggleBlockDate: protectedProcedure
+      .input(z.object({
+        profileId: z.number(),
+        date: z.string(),
+        reason: z.string().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const db = await getDb();
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+        // Verify ownership
+        const profile = await db
+          .select()
+          .from(advertiserProfiles)
+          .where(and(
+            eq(advertiserProfiles.id, input.profileId),
+            eq(advertiserProfiles.userId, ctx.user.id)
+          ))
+          .limit(1);
+
+        if (!profile[0]) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Not authorized" });
+        }
+
+        // Check if already blocked
+        const existing = await db
+          .select()
+          .from(blockedDates)
+          .where(and(
+            eq(blockedDates.profileId, input.profileId),
+            sql`DATE(${blockedDates.date}) = ${input.date}`
+          ));
+
+        if (existing.length > 0) {
+          // Unblock
+          await db
+            .delete(blockedDates)
+            .where(eq(blockedDates.id, existing[0].id));
+          return { blocked: false };
+        } else {
+          // Block
+          await db.insert(blockedDates).values({
+            profileId: input.profileId,
+            date: new Date(input.date),
+            reason: input.reason,
+          });
+          return { blocked: true };
+        }
       }),
   }),
 });

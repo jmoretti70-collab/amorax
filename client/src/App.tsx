@@ -12,6 +12,8 @@ import Profile from "./pages/Profile";
 import Dashboard from "./pages/Dashboard";
 import Onboarding from "./pages/Onboarding";
 import MapViewPage from "./pages/MapView";
+import Booking from "./pages/Booking";
+import ScheduleManagement from "./pages/ScheduleManagement";
 
 function Router() {
   return (
@@ -28,11 +30,15 @@ function Router() {
       {/* Profile Page */}
       <Route path="/perfil/:slug" component={Profile} />
       
+      {/* Booking */}
+      <Route path="/agendar/:slug" component={Booking} />
+      
       {/* Map View */}
       <Route path="/mapa" component={MapViewPage} />
       
       {/* Advertiser Area */}
       <Route path="/dashboard" component={Dashboard} />
+      <Route path="/dashboard/agenda" component={ScheduleManagement} />
       <Route path="/anunciar" component={Onboarding} />
       
       {/* Auth Routes */}

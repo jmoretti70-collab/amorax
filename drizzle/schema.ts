@@ -269,3 +269,108 @@ export const favorites = mysqlTable("favorites", {
 
 export type Favorite = typeof favorites.$inferSelect;
 export type InsertFavorite = typeof favorites.$inferInsert;
+
+
+// ============================================
+// AVAILABILITY SLOTS - Advertiser availability
+// ============================================
+export const availabilitySlots = mysqlTable("availability_slots", {
+  id: int("id").autoincrement().primaryKey(),
+  profileId: int("profileId").notNull().references(() => advertiserProfiles.id),
+  
+  dayOfWeek: int("dayOfWeek").notNull(), // 0 = Sunday, 6 = Saturday
+  startTime: varchar("startTime", { length: 5 }).notNull(), // HH:MM format
+  endTime: varchar("endTime", { length: 5 }).notNull(), // HH:MM format
+  
+  isActive: boolean("isActive").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type AvailabilitySlot = typeof availabilitySlots.$inferSelect;
+export type InsertAvailabilitySlot = typeof availabilitySlots.$inferInsert;
+
+// ============================================
+// BLOCKED DATES - Dates when advertiser is unavailable
+// ============================================
+export const blockedDates = mysqlTable("blocked_dates", {
+  id: int("id").autoincrement().primaryKey(),
+  profileId: int("profileId").notNull().references(() => advertiserProfiles.id),
+  
+  date: timestamp("date").notNull(),
+  reason: varchar("reason", { length: 200 }),
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type BlockedDate = typeof blockedDates.$inferSelect;
+export type InsertBlockedDate = typeof blockedDates.$inferInsert;
+
+// ============================================
+// APPOINTMENTS - Booking appointments
+// ============================================
+export const appointments = mysqlTable("appointments", {
+  id: int("id").autoincrement().primaryKey(),
+  profileId: int("profileId").notNull().references(() => advertiserProfiles.id),
+  userId: int("userId").references(() => users.id),
+  
+  // Client info (for non-registered users)
+  clientName: varchar("clientName", { length: 100 }),
+  clientPhone: varchar("clientPhone", { length: 20 }),
+  clientEmail: varchar("clientEmail", { length: 320 }),
+  
+  // Appointment details
+  appointmentDate: timestamp("appointmentDate").notNull(),
+  duration: int("duration").notNull(), // in minutes (60, 120, etc.)
+  serviceType: varchar("serviceType", { length: 100 }), // Type of service requested
+  
+  // Location
+  locationType: mysqlEnum("locationType", ["advertiser_place", "client_place", "hotel"]).default("advertiser_place").notNull(),
+  locationAddress: text("locationAddress"),
+  
+  // Pricing
+  estimatedPrice: decimal("estimatedPrice", { precision: 10, scale: 2 }),
+  
+  // Status
+  status: mysqlEnum("status", ["pending", "confirmed", "cancelled", "completed", "no_show"]).default("pending").notNull(),
+  
+  // Notes
+  clientNotes: text("clientNotes"),
+  advertiserNotes: text("advertiserNotes"),
+  
+  // Cancellation
+  cancelledBy: mysqlEnum("cancelledBy", ["client", "advertiser"]),
+  cancellationReason: text("cancellationReason"),
+  cancelledAt: timestamp("cancelledAt"),
+  
+  // Confirmation
+  confirmedAt: timestamp("confirmedAt"),
+  completedAt: timestamp("completedAt"),
+  
+  // Reminders
+  reminderSentAt: timestamp("reminderSentAt"),
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Appointment = typeof appointments.$inferSelect;
+export type InsertAppointment = typeof appointments.$inferInsert;
+
+// ============================================
+// APPOINTMENT MESSAGES - Communication about appointments
+// ============================================
+export const appointmentMessages = mysqlTable("appointment_messages", {
+  id: int("id").autoincrement().primaryKey(),
+  appointmentId: int("appointmentId").notNull().references(() => appointments.id),
+  
+  senderType: mysqlEnum("senderType", ["client", "advertiser", "system"]).notNull(),
+  message: text("message").notNull(),
+  
+  isRead: boolean("isRead").default(false),
+  readAt: timestamp("readAt"),
+  
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type AppointmentMessage = typeof appointmentMessages.$inferSelect;
+export type InsertAppointmentMessage = typeof appointmentMessages.$inferInsert;
