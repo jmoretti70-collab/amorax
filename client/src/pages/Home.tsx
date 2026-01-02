@@ -99,7 +99,7 @@ export default function Home() {
       <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-lg border-b border-border">
         <div className="container flex items-center justify-between h-16">
           <Link href="/" className="flex items-center gap-2">
-            <img src="/logo.png" alt="Amorax" className="w-10 h-10 rounded-xl object-cover" />
+            <img src="/logo.png" alt="Amorax" className="rounded-xl object-cover" style={{width: '90px', height: '90px'}} />
             <span className="text-xl font-bold text-gradient">Amorax</span>
           </Link>
           
