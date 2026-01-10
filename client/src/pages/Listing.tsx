@@ -183,7 +183,7 @@ export default function Listing() {
               </Button>
             </Link>
             <Link href="/" className="flex items-center gap-2">
-              <img src="/logo.png" alt="Amorax" className="w-8 h-8 rounded-lg object-cover" />
+              <img src="/logo.png" alt="Amorax" className="w-8 h-8 rounded-lg object-cover" style={{width: '80px', height: '80px'}} />
               <span className="text-lg font-bold text-gradient hidden sm:block">Amorax</span>
             </Link>
           </div>
