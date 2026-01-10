@@ -22,10 +22,9 @@ function Router() {
       <Route path="/" component={Home} />
       
       {/* Category Listings */}
-      <Route path="/mulheres" component={Listing} />
-      <Route path="/homens" component={Listing} />
-      <Route path="/travestis" component={Listing} />
-      <Route path="/:category" component={Listing} />
+      <Route path="/mulheres">{() => <Listing category="mulheres" />}</Route>
+      <Route path="/homens">{() => <Listing category="homens" />}</Route>
+      <Route path="/travestis">{() => <Listing category="travestis" />}</Route>
       
       {/* Profile Page */}
       <Route path="/perfil/:slug" component={Profile} />

@@ -75,3 +75,15 @@
 - [x] Verificar e corrigir erros de runtime
 - [x] Testar todas as páginas e funcionalidades
 - [x] Validar testes unitários
+
+## Fase 11: Implementação de Sugestões
+
+- [x] Padronizar logotipo (80-90px) em todas as páginas
+- [x] Integrar pagamentos com Stripe
+- [x] Adicionar perfis de demonstração em outras cidades (RJ, BH, etc)
+- [x] Gerar fotos para seção de Homens
+- [x] Gerar fotos para seção de Travestis
+- [x] Atualizar banco de dados com novos perfis e fotos
+- [x] Corrigir listagem para buscar dados do banco de dados via API
+- [x] Adicionar rota getByProfiles para mídia
+- [x] Testar todas as funcionalidades - Mulheres, Homens e Travestis funcionando

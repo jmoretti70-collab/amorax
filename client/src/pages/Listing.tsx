@@ -32,128 +32,27 @@ import {
   Sparkles,
   Clock,
   Phone,
-  ChevronLeft
+  ChevronLeft,
+  Loader2
 } from "lucide-react";
 import { Link, useParams } from "wouter";
+import { trpc } from "@/lib/trpc";
 
-// Mock data for profiles
-const mockProfiles = [
-  {
-    id: 1,
-    slug: "julia-santos",
-    name: "Julia Santos",
-    age: 25,
-    city: "São Paulo",
-    neighborhood: "Moema",
-    price: 300,
-    mainPhoto: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&h=500&fit=crop",
-    isVerified: true,
-    isPremium: true,
-    isVip: false,
-    is24Hours: true,
-    hasOwnPlace: true,
-    rating: 4.8,
-    reviewCount: 45
-  },
-  {
-    id: 2,
-    slug: "amanda-oliveira",
-    name: "Amanda Oliveira",
-    age: 28,
-    city: "São Paulo",
-    neighborhood: "Jardins",
-    price: 500,
-    mainPhoto: "https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=400&h=500&fit=crop",
-    isVerified: true,
-    isPremium: false,
-    isVip: true,
-    is24Hours: false,
-    hasOwnPlace: true,
-    rating: 4.9,
-    reviewCount: 89
-  },
-  {
-    id: 3,
-    slug: "carol-mello",
-    name: "Carol Mello",
-    age: 24,
-    city: "São Paulo",
-    neighborhood: "Pinheiros",
-    price: 250,
-    mainPhoto: "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=400&h=500&fit=crop",
-    isVerified: true,
-    isPremium: true,
-    isVip: false,
-    is24Hours: true,
-    hasOwnPlace: false,
-    rating: 4.7,
-    reviewCount: 32
-  },
-  {
-    id: 4,
-    slug: "fernanda-lima",
-    name: "Fernanda Lima",
-    age: 26,
-    city: "São Paulo",
-    neighborhood: "Itaim Bibi",
-    price: 400,
-    mainPhoto: "https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?w=400&h=500&fit=crop",
-    isVerified: true,
-    isPremium: false,
-    isVip: false,
-    is24Hours: false,
-    hasOwnPlace: true,
-    rating: 4.6,
-    reviewCount: 28
-  },
-  {
-    id: 5,
-    slug: "bianca-costa",
-    name: "Bianca Costa",
-    age: 23,
-    city: "São Paulo",
-    neighborhood: "Vila Olímpia",
-    price: 350,
-    mainPhoto: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&h=500&fit=crop",
-    isVerified: true,
-    isPremium: true,
-    isVip: false,
-    is24Hours: true,
-    hasOwnPlace: true,
-    rating: 4.8,
-    reviewCount: 56
-  },
-  {
-    id: 6,
-    slug: "larissa-souza",
-    name: "Larissa Souza",
-    age: 27,
-    city: "São Paulo",
-    neighborhood: "Brooklin",
-    price: 450,
-    mainPhoto: "https://images.unsplash.com/photo-1502823403499-6ccfcf4fb453?w=400&h=500&fit=crop",
-    isVerified: true,
-    isPremium: false,
-    isVip: true,
-    is24Hours: false,
-    hasOwnPlace: true,
-    rating: 4.9,
-    reviewCount: 72
-  }
-];
-
-const categoryTitles: Record<string, { title: string; description: string }> = {
+const categoryTitles: Record<string, { title: string; description: string; apiCategory: "women" | "men" | "trans" }> = {
   mulheres: {
     title: "Mulheres",
-    description: "Acompanhantes femininas verificadas em todo o Brasil"
+    description: "Acompanhantes femininas verificadas em todo o Brasil",
+    apiCategory: "women"
   },
   homens: {
     title: "Homens",
-    description: "Acompanhantes masculinos verificados em todo o Brasil"
+    description: "Acompanhantes masculinos verificados em todo o Brasil",
+    apiCategory: "men"
   },
   travestis: {
     title: "Travestis",
-    description: "Acompanhantes trans verificadas em todo o Brasil"
+    description: "Acompanhantes trans verificadas em todo o Brasil",
+    apiCategory: "trans"
   }
 };
 
@@ -162,14 +61,56 @@ const services = [
   "Dominação", "Inversão", "Casais", "Viagens"
 ];
 
-export default function Listing() {
+interface ListingProps {
+  category?: string;
+}
+
+export default function Listing({ category: propCategory }: ListingProps) {
   const params = useParams();
-  const category = params.category || "mulheres";
+  const category = propCategory || params.category || "mulheres";
   const categoryInfo = categoryTitles[category] || categoryTitles.mulheres;
   
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [priceRange, setPriceRange] = useState([100, 1000]);
   const [ageRange, setAgeRange] = useState([18, 50]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCity, setSelectedCity] = useState("all");
+  const [sortBy, setSortBy] = useState<"relevance" | "price_asc" | "price_desc" | "rating" | "recent">("relevance");
+
+  // Fetch profiles from API
+  const { data, isLoading, error } = trpc.profiles.list.useQuery({
+    category: categoryInfo.apiCategory,
+    city: selectedCity !== "all" ? selectedCity : undefined,
+    minPrice: priceRange[0],
+    maxPrice: priceRange[1],
+    minAge: ageRange[0],
+    maxAge: ageRange[1],
+    sortBy: sortBy,
+    limit: 20,
+  });
+
+  // Fetch media for profiles
+  const profileIds = data?.profiles.map(p => p.id) || [];
+  const { data: mediaData } = trpc.media.getByProfiles.useQuery(
+    { profileIds },
+    { enabled: profileIds.length > 0 }
+  );
+
+  const profiles = data?.profiles || [];
+
+  // Get main photo for a profile
+  const getMainPhoto = (profileId: number) => {
+    const media = mediaData?.find(m => m.profileId === profileId && m.isMain);
+    if (media?.url) {
+      // If it's a relative URL, use it directly
+      if (media.url.startsWith('/')) {
+        return media.url;
+      }
+      return media.url;
+    }
+    // Fallback placeholder
+    return `https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&h=500&fit=crop`;
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -183,7 +124,7 @@ export default function Listing() {
               </Button>
             </Link>
             <Link href="/" className="flex items-center gap-2">
-              <img src="/logo.png" alt="Amorax" className="w-8 h-8 rounded-lg object-cover" style={{width: '80px', height: '80px'}} />
+              <img src="/logo.png" alt="Amorax" className="w-20 h-20 rounded-lg object-cover" />
               <span className="text-lg font-bold text-gradient hidden sm:block">Amorax</span>
             </Link>
           </div>
@@ -220,7 +161,7 @@ export default function Listing() {
       <div className="container py-6">
         {/* Page Title */}
         <div className="mb-6">
-          <h1 className="text-3xl font-bold mb-2">{categoryInfo.title}</h1>
+          <h1 className="text-3xl font-bold">{categoryInfo.title}</h1>
           <p className="text-muted-foreground">{categoryInfo.description}</p>
         </div>
 
@@ -230,56 +171,56 @@ export default function Listing() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input 
               placeholder="Buscar por nome, cidade ou bairro..." 
-              className="pl-10 bg-card"
+              className="pl-10"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
           
           <div className="flex gap-2">
-            <Select defaultValue="sao-paulo">
-              <SelectTrigger className="w-[180px] bg-card">
+            <Select value={selectedCity} onValueChange={setSelectedCity}>
+              <SelectTrigger className="w-[140px]">
                 <MapPin className="w-4 h-4 mr-2" />
                 <SelectValue placeholder="Cidade" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="sao-paulo">São Paulo</SelectItem>
-                <SelectItem value="rio-de-janeiro">Rio de Janeiro</SelectItem>
-                <SelectItem value="belo-horizonte">Belo Horizonte</SelectItem>
-                <SelectItem value="brasilia">Brasília</SelectItem>
-                <SelectItem value="curitiba">Curitiba</SelectItem>
+                <SelectItem value="all">Todas</SelectItem>
+                <SelectItem value="São Paulo">São Paulo</SelectItem>
+                <SelectItem value="Rio de Janeiro">Rio de Janeiro</SelectItem>
+                <SelectItem value="Belo Horizonte">Belo Horizonte</SelectItem>
+                <SelectItem value="Curitiba">Curitiba</SelectItem>
+                <SelectItem value="Porto Alegre">Porto Alegre</SelectItem>
               </SelectContent>
             </Select>
 
-            <Select defaultValue="relevancia">
-              <SelectTrigger className="w-[150px] bg-card">
+            <Select value={sortBy} onValueChange={(v) => setSortBy(v as any)}>
+              <SelectTrigger className="w-[140px]">
                 <SelectValue placeholder="Ordenar" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="relevancia">Relevância</SelectItem>
-                <SelectItem value="preco-menor">Menor Preço</SelectItem>
-                <SelectItem value="preco-maior">Maior Preço</SelectItem>
-                <SelectItem value="avaliacao">Avaliação</SelectItem>
-                <SelectItem value="recentes">Mais Recentes</SelectItem>
+                <SelectItem value="relevance">Relevância</SelectItem>
+                <SelectItem value="price_asc">Menor Preço</SelectItem>
+                <SelectItem value="price_desc">Maior Preço</SelectItem>
+                <SelectItem value="rating">Avaliação</SelectItem>
+                <SelectItem value="recent">Mais Recentes</SelectItem>
               </SelectContent>
             </Select>
 
-            {/* Filters Sheet */}
             <Sheet>
               <SheetTrigger asChild>
-                <Button variant="outline" className="gap-2">
+                <Button variant="outline" size="icon">
                   <Filter className="w-4 h-4" />
-                  Filtros
                 </Button>
               </SheetTrigger>
-              <SheetContent className="w-[400px] sm:w-[540px] overflow-y-auto">
+              <SheetContent>
                 <SheetHeader>
-                  <SheetTitle>Filtros Avançados</SheetTitle>
+                  <SheetTitle>Filtros</SheetTitle>
                 </SheetHeader>
-                
-                <div className="space-y-6 mt-6">
+                <div className="py-6 space-y-6">
                   {/* Price Range */}
                   <div>
-                    <label className="text-sm font-medium mb-3 block">
-                      Faixa de Preço: R$ {priceRange[0]} - R$ {priceRange[1]}
+                    <label className="text-sm font-medium mb-2 block">
+                      Preço por hora: R$ {priceRange[0]} - R$ {priceRange[1]}
                     </label>
                     <Slider
                       value={priceRange}
@@ -293,7 +234,7 @@ export default function Listing() {
 
                   {/* Age Range */}
                   <div>
-                    <label className="text-sm font-medium mb-3 block">
+                    <label className="text-sm font-medium mb-2 block">
                       Idade: {ageRange[0]} - {ageRange[1]} anos
                     </label>
                     <Slider
@@ -308,10 +249,10 @@ export default function Listing() {
 
                   {/* Services */}
                   <div>
-                    <label className="text-sm font-medium mb-3 block">Serviços</label>
-                    <div className="grid grid-cols-2 gap-2">
+                    <label className="text-sm font-medium mb-2 block">Serviços</label>
+                    <div className="grid grid-cols-2 gap-2 mt-2">
                       {services.map((service) => (
-                        <div key={service} className="flex items-center gap-2">
+                        <div key={service} className="flex items-center space-x-2">
                           <Checkbox id={service} />
                           <label htmlFor={service} className="text-sm">{service}</label>
                         </div>
@@ -320,41 +261,25 @@ export default function Listing() {
                   </div>
 
                   {/* Other Filters */}
-                  <div>
-                    <label className="text-sm font-medium mb-3 block">Outros</label>
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <Checkbox id="verified" />
-                        <label htmlFor="verified" className="text-sm">Apenas verificados</label>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Checkbox id="24hours" />
-                        <label htmlFor="24hours" className="text-sm">Atende 24 horas</label>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Checkbox id="hasPlace" />
-                        <label htmlFor="hasPlace" className="text-sm">Com local próprio</label>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Checkbox id="acceptsPix" />
-                        <label htmlFor="acceptsPix" className="text-sm">Aceita PIX</label>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Checkbox id="acceptsCard" />
-                        <label htmlFor="acceptsCard" className="text-sm">Aceita Cartão</label>
-                      </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox id="verified" />
+                      <label htmlFor="verified" className="text-sm">Apenas verificadas</label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox id="hasPlace" />
+                      <label htmlFor="hasPlace" className="text-sm">Com local próprio</label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox id="24hours" />
+                      <label htmlFor="24hours" className="text-sm">Atende 24h</label>
                     </div>
                   </div>
-
-                  <Button className="w-full gradient-pink border-0">
-                    Aplicar Filtros
-                  </Button>
                 </div>
               </SheetContent>
             </Sheet>
 
-            {/* View Mode Toggle */}
-            <div className="hidden md:flex border border-border rounded-lg overflow-hidden">
+            <div className="hidden md:flex border rounded-lg">
               <Button 
                 variant={viewMode === "grid" ? "secondary" : "ghost"} 
                 size="icon"
@@ -374,125 +299,148 @@ export default function Listing() {
         </div>
 
         {/* Results Count */}
-        <div className="flex items-center justify-between mb-4">
-          <p className="text-sm text-muted-foreground">
-            <span className="font-medium text-foreground">{mockProfiles.length}</span> perfis encontrados
-          </p>
+        <div className="mb-4 text-sm text-muted-foreground">
+          {isLoading ? "Carregando..." : `${data?.total || 0} perfis encontrados`}
         </div>
+
+        {/* Loading State */}
+        {isLoading && (
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
+        )}
+
+        {/* Error State */}
+        {error && (
+          <div className="text-center py-20">
+            <p className="text-red-500">Erro ao carregar perfis. Tente novamente.</p>
+          </div>
+        )}
+
+        {/* Empty State */}
+        {!isLoading && !error && profiles.length === 0 && (
+          <div className="text-center py-20">
+            <p className="text-muted-foreground">Nenhum perfil encontrado para esta categoria.</p>
+          </div>
+        )}
 
         {/* Profiles Grid */}
-        <div className={`grid gap-4 ${viewMode === "grid" ? "grid-cols-2 md:grid-cols-3 lg:grid-cols-4" : "grid-cols-1"}`}>
-          {mockProfiles.map((profile) => (
-            <Link key={profile.id} href={`/perfil/${profile.slug}`}>
-              <Card className={`profile-card overflow-hidden cursor-pointer ${viewMode === "list" ? "flex" : ""}`}>
-                {/* Image */}
-                <div className={`relative ${viewMode === "list" ? "w-48 shrink-0" : "aspect-[3/4]"}`}>
-                  <img 
-                    src={profile.mainPhoto} 
-                    alt={profile.name}
-                    className="w-full h-full object-cover"
-                  />
-                  
-                  {/* Badges */}
-                  <div className="absolute top-2 left-2 flex flex-col gap-1">
-                    {profile.isVip && (
-                      <Badge className="badge-vip">
-                        <Crown className="w-3 h-3" />
-                        VIP
-                      </Badge>
-                    )}
-                    {profile.isPremium && !profile.isVip && (
-                      <Badge className="badge-premium">
-                        <Sparkles className="w-3 h-3" />
-                        Premium
-                      </Badge>
-                    )}
-                    {profile.isVerified && (
-                      <Badge className="badge-verified">
-                        <CheckCircle2 className="w-3 h-3" />
+        {!isLoading && !error && profiles.length > 0 && (
+          <div className={`grid gap-4 ${viewMode === "grid" ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" : "grid-cols-1"}`}>
+            {profiles.map((profile) => (
+              <Link key={profile.id} href={`/perfil/${profile.slug}`}>
+                <Card className="group overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all">
+                  <div className="relative aspect-[4/5]">
+                    <img 
+                      src={getMainPhoto(profile.id)} 
+                      alt={profile.displayName}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                    
+                    {/* Badges */}
+                    <div className="absolute top-2 left-2 flex flex-col gap-1">
+                      {profile.plan === "vip" && (
+                        <Badge className="bg-yellow-500 text-black">
+                          <Crown className="w-3 h-3 mr-1" />
+                          VIP
+                        </Badge>
+                      )}
+                      {profile.plan === "premium" && (
+                        <Badge className="bg-pink-500">
+                          <Sparkles className="w-3 h-3 mr-1" />
+                          Premium
+                        </Badge>
+                      )}
+                      <Badge variant="secondary" className="bg-green-500/90 text-white">
+                        <CheckCircle2 className="w-3 h-3 mr-1" />
                         Verificado
                       </Badge>
-                    )}
-                  </div>
+                    </div>
 
-                  {/* Favorite Button */}
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                    }}
-                  >
-                    <Heart className="w-4 h-4" />
-                  </Button>
+                    {/* Favorite Button */}
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="absolute top-2 right-2 bg-black/30 hover:bg-black/50"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
+                    >
+                      <Heart className="w-4 h-4" />
+                    </Button>
 
-                  {/* Price Tag */}
-                  <div className="absolute bottom-2 right-2 bg-black/70 backdrop-blur-sm px-2 py-1 rounded-lg">
-                    <span className="text-white font-bold">R$ {profile.price}</span>
-                    <span className="text-white/70 text-xs">/h</span>
-                  </div>
-                </div>
-
-                {/* Info */}
-                <div className={`p-3 ${viewMode === "list" ? "flex-1" : ""}`}>
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <h3 className="font-semibold truncate">{profile.name}, {profile.age}</h3>
-                      <p className="text-sm text-muted-foreground flex items-center gap-1">
-                        <MapPin className="w-3 h-3" />
-                        {profile.neighborhood}, {profile.city}
-                      </p>
+                    {/* Price Tag */}
+                    <div className="absolute bottom-2 right-2 bg-black/70 px-2 py-1 rounded-lg">
+                      <span className="text-white font-bold">R$ {Number(profile.pricePerHour || 0).toFixed(0)}</span>
+                      <span className="text-white/70 text-sm">/h</span>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 mt-2">
-                    <div className="flex items-center gap-1">
-                      <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
-                      <span className="text-sm font-medium">{profile.rating}</span>
-                      <span className="text-xs text-muted-foreground">({profile.reviewCount})</span>
+                  <div className="p-3">
+                    <h3 className="font-semibold">{profile.displayName}, {profile.age}</h3>
+                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                      <MapPin className="w-3 h-3" />
+                      {profile.neighborhood}, {profile.city}
                     </div>
-                    
-                    {profile.is24Hours && (
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <Clock className="w-3 h-3" />
-                        24h
+                    <div className="flex items-center justify-between mt-2">
+                      <div className="flex items-center gap-1">
+                        <Star className="w-4 h-4 fill-yellow-500 text-yellow-500" />
+                        <span className="text-sm font-medium">4.8</span>
+                        <span className="text-sm text-muted-foreground">(45)</span>
                       </div>
-                    )}
-                    
-                    {profile.hasOwnPlace && (
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <MapPin className="w-3 h-3" />
-                        Local
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        {profile.is24Hours && (
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            24h
+                          </span>
+                        )}
+                        {profile.hasOwnPlace && (
+                          <span className="flex items-center gap-1">
+                            <Phone className="w-3 h-3" />
+                            Local
+                          </span>
+                        )}
                       </div>
-                    )}
-                  </div>
-
-                  {viewMode === "list" && (
-                    <div className="mt-3 flex gap-2">
-                      <Button size="sm" className="gradient-pink border-0">
-                        <Phone className="w-3 h-3 mr-1" />
-                        Contato
-                      </Button>
-                      <Button size="sm" variant="outline">
-                        Ver Perfil
-                      </Button>
                     </div>
-                  )}
-                </div>
-              </Card>
-            </Link>
-          ))}
-        </div>
+                  </div>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        )}
 
         {/* Load More */}
-        <div className="mt-8 text-center">
-          <Button variant="outline" size="lg">
-            Carregar Mais Perfis
-          </Button>
-        </div>
+        {!isLoading && !error && profiles.length > 0 && data && data.page < data.totalPages && (
+          <div className="flex justify-center mt-8">
+            <Button variant="outline" size="lg">
+              Carregar Mais Perfis
+            </Button>
+          </div>
+        )}
       </div>
+
+      {/* Mobile Category Nav */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-background border-t border-border p-2">
+        <div className="flex justify-around">
+          <Link href="/mulheres">
+            <Button variant={category === "mulheres" ? "default" : "ghost"} size="sm" className={category === "mulheres" ? "gradient-pink border-0" : ""}>
+              Mulheres
+            </Button>
+          </Link>
+          <Link href="/homens">
+            <Button variant={category === "homens" ? "default" : "ghost"} size="sm" className={category === "homens" ? "gradient-pink border-0" : ""}>
+              Homens
+            </Button>
+          </Link>
+          <Link href="/travestis">
+            <Button variant={category === "travestis" ? "default" : "ghost"} size="sm" className={category === "travestis" ? "gradient-pink border-0" : ""}>
+              Travestis
+            </Button>
+          </Link>
+        </div>
+      </nav>
     </div>
   );
 }

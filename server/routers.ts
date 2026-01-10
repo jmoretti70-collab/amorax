@@ -15,10 +15,17 @@ import {
   appointments,
   availabilitySlots,
   blockedDates,
-  appointmentMessages
+  appointmentMessages,
+  users
 } from "../drizzle/schema";
 import { eq, and, desc, like, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
+import Stripe from "stripe";
+import { STRIPE_PRODUCTS, getPlanPrice, getPlanIntervalCount, type PlanType, type BillingInterval } from "./stripe/products";
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
+  apiVersion: "2025-12-15.clover"
+});
 
 export const appRouter = router({
   system: systemRouter,
@@ -341,6 +348,26 @@ export const appRouter = router({
 
   // Media Router
   media: router({
+    // Get media for multiple profiles
+    getByProfiles: publicProcedure
+      .input(z.object({
+        profileIds: z.array(z.number()),
+      }))
+      .query(async ({ input }) => {
+        if (input.profileIds.length === 0) return [];
+        
+        const db = await getDb();
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+        const result = await db
+          .select()
+          .from(profileMedia)
+          .where(sql`${profileMedia.profileId} IN (${sql.join(input.profileIds.map(id => sql`${id}`), sql`, `)})`)
+          .orderBy(profileMedia.sortOrder);
+
+        return result;
+      }),
+
     upload: protectedProcedure
       .input(z.object({
         profileId: z.number(),
@@ -1055,6 +1082,154 @@ export const appRouter = router({
           });
           return { blocked: true };
         }
+      }),
+  }),
+
+  // Payments Router - Stripe Integration
+  payments: router({
+    // Create checkout session for subscription
+    createCheckoutSession: protectedProcedure
+      .input(z.object({
+        plan: z.enum(["premium", "vip"]),
+        interval: z.enum(["monthly", "quarterly", "yearly"]).default("monthly"),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const product = input.plan === "premium" ? STRIPE_PRODUCTS.PREMIUM : STRIPE_PRODUCTS.VIP;
+        const price = getPlanPrice(input.plan, input.interval);
+        const intervalCount = getPlanIntervalCount(input.interval);
+
+        const session = await stripe.checkout.sessions.create({
+          mode: "subscription",
+          payment_method_types: ["card"],
+          allow_promotion_codes: true,
+          customer_email: ctx.user.email || undefined,
+          client_reference_id: ctx.user.id.toString(),
+          metadata: {
+            user_id: ctx.user.id.toString(),
+            customer_email: ctx.user.email || "",
+            customer_name: ctx.user.name || "",
+            plan: input.plan,
+            interval: input.interval,
+          },
+          line_items: [
+            {
+              price_data: {
+                currency: "brl",
+                product_data: {
+                  name: product.name,
+                  description: product.description,
+                },
+                unit_amount: price,
+                recurring: {
+                  interval: "month",
+                  interval_count: intervalCount,
+                },
+              },
+              quantity: 1,
+            },
+          ],
+          success_url: `${ctx.req.headers.origin}/dashboard?payment=success&plan=${input.plan}`,
+          cancel_url: `${ctx.req.headers.origin}/dashboard?payment=cancelled`,
+        });
+
+        return { checkoutUrl: session.url };
+      }),
+
+    // Get current subscription status
+    getSubscriptionStatus: protectedProcedure
+      .query(async ({ ctx }) => {
+        const db = await getDb();
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+        const profile = await db
+          .select()
+          .from(advertiserProfiles)
+          .where(eq(advertiserProfiles.userId, ctx.user.id))
+          .limit(1);
+
+        if (!profile[0]) {
+          return { hasSubscription: false, plan: "free" as const };
+        }
+
+        if (!profile[0].stripeSubscriptionId) {
+          return { hasSubscription: false, plan: profile[0].plan };
+        }
+
+        try {
+          const subscription = await stripe.subscriptions.retrieve(profile[0].stripeSubscriptionId);
+          const periodEnd = (subscription as any).current_period_end;
+          const cancelAtEnd = (subscription as any).cancel_at_period_end;
+          return {
+            hasSubscription: true,
+            plan: profile[0].plan,
+            status: subscription.status,
+            currentPeriodEnd: periodEnd ? new Date(periodEnd * 1000) : null,
+            cancelAtPeriodEnd: cancelAtEnd || false,
+          };
+        } catch {
+          return { hasSubscription: false, plan: profile[0].plan };
+        }
+      }),
+
+    // Cancel subscription
+    cancelSubscription: protectedProcedure
+      .mutation(async ({ ctx }) => {
+        const db = await getDb();
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+        const profile = await db
+          .select()
+          .from(advertiserProfiles)
+          .where(eq(advertiserProfiles.userId, ctx.user.id))
+          .limit(1);
+
+        if (!profile[0]?.stripeSubscriptionId) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "No active subscription" });
+        }
+
+        await stripe.subscriptions.update(profile[0].stripeSubscriptionId, {
+          cancel_at_period_end: true,
+        });
+
+        return { success: true, message: "Subscription will be cancelled at the end of the billing period" };
+      }),
+
+    // Get available plans
+    getPlans: publicProcedure
+      .query(async () => {
+        const db = await getDb();
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+        const plans = await db
+          .select()
+          .from(subscriptionPlans)
+          .where(eq(subscriptionPlans.isActive, true));
+
+        return plans;
+      }),
+
+    // Create portal session for managing subscription
+    createPortalSession: protectedProcedure
+      .mutation(async ({ ctx }) => {
+        const db = await getDb();
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+        const user = await db
+          .select()
+          .from(users)
+          .where(eq(users.id, ctx.user.id))
+          .limit(1);
+
+        if (!user[0]?.stripeCustomerId) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "No Stripe customer found" });
+        }
+
+        const session = await stripe.billingPortal.sessions.create({
+          customer: user[0].stripeCustomerId,
+          return_url: `${ctx.req.headers.origin}/dashboard`,
+        });
+
+        return { portalUrl: session.url };
       }),
   }),
 });

@@ -110,7 +110,7 @@ export default function Dashboard() {
         {/* Logo */}
         <div className="p-6 border-b border-border">
           <Link href="/" className="flex items-center gap-2">
-            <img src="/logo.png" alt="Amorax" className="w-10 h-10 rounded-xl object-cover" />
+            <img src="/logo.png" alt="Amorax" className="rounded-xl object-cover" style={{width: '80px', height: '80px'}} />
             <span className="text-xl font-bold text-gradient">Amorax</span>
           </Link>
         </div>

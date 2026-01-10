@@ -15,6 +15,7 @@ export const users = mysqlTable("users", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
+  stripeCustomerId: varchar("stripeCustomerId", { length: 100 }),
 });
 
 export type User = typeof users.$inferSelect;
@@ -74,6 +75,7 @@ export const advertiserProfiles = mysqlTable("advertiser_profiles", {
   // Plan & Status
   plan: mysqlEnum("plan", ["free", "premium", "vip"]).default("free").notNull(),
   planExpiresAt: timestamp("planExpiresAt"),
+  stripeSubscriptionId: varchar("stripeSubscriptionId", { length: 100 }),
   isActive: boolean("isActive").default(true).notNull(),
   isFeatured: boolean("isFeatured").default(false),
   
@@ -218,6 +220,8 @@ export const payments = mysqlTable("payments", {
   status: mysqlEnum("status", ["pending", "completed", "failed", "refunded"]).default("pending").notNull(),
   
   externalId: varchar("externalId", { length: 100 }), // Payment gateway reference
+  stripePaymentIntentId: varchar("stripePaymentIntentId", { length: 100 }),
+  stripeInvoiceId: varchar("stripeInvoiceId", { length: 100 }),
   paidAt: timestamp("paidAt"),
   
   createdAt: timestamp("createdAt").defaultNow().notNull(),
