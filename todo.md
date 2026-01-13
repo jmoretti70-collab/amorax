@@ -87,3 +87,15 @@
 - [x] Corrigir listagem para buscar dados do banco de dados via API
 - [x] Adicionar rota getByProfiles para mídia
 - [x] Testar todas as funcionalidades - Mulheres, Homens e Travestis funcionando
+
+## Fase 12: Sistema de Chat
+
+- [x] Criar tabelas de chat no banco de dados (conversas, mensagens, leitura)
+- [x] Implementar APIs tRPC para chat (criar conversa, enviar mensagem, listar, marcar como lido)
+- [x] Criar componente de interface de chat (ChatBox.tsx)
+- [x] Adicionar página de lista de conversas (Messages.tsx)
+- [x] Integrar chat na página de perfil (botão "Enviar Mensagem")
+- [x] Adicionar aba de chat no dashboard do anunciante
+- [ ] Implementar notificações de novas mensagens
+- [ ] Adicionar indicador de mensagens não lidas
+- [x] Testar sistema de chat completo (20 testes passando)

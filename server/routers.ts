@@ -16,6 +16,8 @@ import {
   availabilitySlots,
   blockedDates,
   appointmentMessages,
+  conversations,
+  messages,
   users
 } from "../drizzle/schema";
 import { eq, and, desc, like, sql } from "drizzle-orm";
@@ -1230,6 +1232,258 @@ export const appRouter = router({
         });
 
         return { portalUrl: session.url };
+      }),
+  }),
+
+  // Chat Router
+  chat: router({
+    // Create conversation
+    createConversation: protectedProcedure
+      .input(z.object({
+        advertiserId: z.number(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const db = await getDb();
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+        // Check if conversation already exists
+        const existing = await db
+          .select()
+          .from(conversations)
+          .where(and(
+            eq(conversations.userId, ctx.user.id),
+            eq(conversations.advertiserId, input.advertiserId)
+          ))
+          .limit(1);
+
+        if (existing[0]) {
+          return existing[0];
+        }
+
+        // Create new conversation
+        const result = await db.insert(conversations).values({
+          userId: ctx.user.id,
+          advertiserId: input.advertiserId,
+        });
+
+        // Get the inserted ID from result
+        const insertedId = (result as any).insertId || (result as any)[0]?.id;
+        
+        if (!insertedId) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to create conversation" });
+        }
+
+        const newConversation = await db
+          .select()
+          .from(conversations)
+          .where(eq(conversations.id, Number(insertedId)))
+          .limit(1);
+
+        return newConversation[0] || { id: insertedId, userId: ctx.user.id, advertiserId: input.advertiserId, lastMessage: null, lastMessageAt: null, lastMessageSenderId: null, userUnreadCount: 0, advertiserUnreadCount: 0, createdAt: new Date(), updatedAt: new Date() };
+      }),
+
+    // Get or create conversation
+    getOrCreateConversation: protectedProcedure
+      .input(z.object({
+        advertiserId: z.number(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const db = await getDb();
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+        // Check if conversation already exists
+        const existing = await db
+          .select()
+          .from(conversations)
+          .where(and(
+            eq(conversations.userId, ctx.user.id),
+            eq(conversations.advertiserId, input.advertiserId)
+          ))
+          .limit(1);
+
+        if (existing[0]) {
+          return existing[0];
+        }
+
+        // Create new conversation
+        const result = await db.insert(conversations).values({
+          userId: ctx.user.id,
+          advertiserId: input.advertiserId,
+        });
+
+        // Get the inserted ID from result
+        const insertedId = (result as any).insertId || (result as any)[0]?.id;
+        
+        if (!insertedId) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to create conversation" });
+        }
+
+        const newConversation = await db
+          .select()
+          .from(conversations)
+          .where(eq(conversations.id, Number(insertedId)))
+          .limit(1);
+
+        return newConversation[0] || { id: insertedId, userId: ctx.user.id, advertiserId: input.advertiserId, lastMessage: null, lastMessageAt: null, lastMessageSenderId: null, userUnreadCount: 0, advertiserUnreadCount: 0, createdAt: new Date(), updatedAt: new Date() };
+      }),
+
+    // List conversations for current user
+    listConversations: protectedProcedure
+      .query(async ({ ctx }) => {
+        const db = await getDb();
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+        const result = await db
+          .select({
+            conversation: conversations,
+            advertiser: advertiserProfiles,
+            lastMessageSender: users,
+          })
+          .from(conversations)
+          .leftJoin(advertiserProfiles, eq(conversations.advertiserId, advertiserProfiles.id))
+          .leftJoin(users, eq(conversations.lastMessageSenderId, users.id))
+          .where(eq(conversations.userId, ctx.user.id))
+          .orderBy(desc(conversations.updatedAt));
+
+        return result.map(r => ({
+          ...r.conversation,
+          advertiser: r.advertiser,
+          lastMessageSender: r.lastMessageSender,
+        }));
+      }),
+
+    // Get messages in conversation
+    getMessages: protectedProcedure
+      .input(z.object({
+        conversationId: z.number(),
+      }))
+      .query(async ({ ctx, input }) => {
+        const db = await getDb();
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+        // Verify user has access to this conversation
+        const conv = await db
+          .select()
+          .from(conversations)
+          .where(eq(conversations.id, input.conversationId))
+          .limit(1);
+
+        if (!conv[0] || (conv[0].userId !== ctx.user.id && conv[0].advertiserId !== ctx.user.id)) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Not authorized" });
+        }
+
+        const result = await db
+          .select()
+          .from(messages)
+          .where(eq(messages.conversationId, input.conversationId))
+          .orderBy(messages.createdAt);
+
+        return result;
+      }),
+
+    // Send message
+    sendMessage: protectedProcedure
+      .input(z.object({
+        conversationId: z.number(),
+        content: z.string().min(1).max(5000),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const db = await getDb();
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+        // Verify user has access to this conversation
+        const conv = await db
+          .select()
+          .from(conversations)
+          .where(eq(conversations.id, input.conversationId))
+          .limit(1);
+
+        if (!conv[0] || (conv[0].userId !== ctx.user.id && conv[0].advertiserId !== ctx.user.id)) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Not authorized" });
+        }
+
+        // Determine sender type
+        const senderType = conv[0].userId === ctx.user.id ? "user" : "advertiser";
+
+        // Insert message
+        const result = await db.insert(messages).values({
+          conversationId: input.conversationId,
+          senderId: ctx.user.id,
+          senderType: senderType as any,
+          content: input.content,
+        });
+
+        // Update conversation last message
+        await db
+          .update(conversations)
+          .set({
+            lastMessage: input.content,
+            lastMessageAt: new Date(),
+            lastMessageSenderId: ctx.user.id,
+            advertiserUnreadCount: senderType === "user" ? (conv[0].advertiserUnreadCount || 0) + 1 : 0,
+            userUnreadCount: senderType === "advertiser" ? (conv[0].userUnreadCount || 0) + 1 : 0,
+          })
+          .where(eq(conversations.id, input.conversationId));
+
+        // Get the inserted ID from result
+        const insertedId = (result as any).insertId || (result as any)[0]?.id;
+        
+        if (!insertedId) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to send message" });
+        }
+
+        const newMessage = await db
+          .select()
+          .from(messages)
+          .where(eq(messages.id, Number(insertedId)))
+          .limit(1);
+
+        return newMessage[0] || { id: insertedId, conversationId: input.conversationId, senderId: ctx.user.id, senderType: senderType as any, content: input.content, isRead: false, readAt: null, createdAt: new Date(), updatedAt: new Date() };
+      }),
+
+    // Mark messages as read
+    markAsRead: protectedProcedure
+      .input(z.object({
+        conversationId: z.number(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const db = await getDb();
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+        // Verify user has access to this conversation
+        const conv = await db
+          .select()
+          .from(conversations)
+          .where(eq(conversations.id, input.conversationId))
+          .limit(1);
+
+        if (!conv[0] || (conv[0].userId !== ctx.user.id && conv[0].advertiserId !== ctx.user.id)) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Not authorized" });
+        }
+
+        // Mark unread messages as read
+        const isUser = conv[0].userId === ctx.user.id;
+        const senderType = isUser ? "advertiser" : "user";
+
+        await db
+          .update(messages)
+          .set({ isRead: true, readAt: new Date() })
+          .where(and(
+            eq(messages.conversationId, input.conversationId),
+            eq(messages.senderType, senderType as any),
+            eq(messages.isRead, false)
+          ));
+
+        // Reset unread count
+        await db
+          .update(conversations)
+          .set({
+            userUnreadCount: isUser ? 0 : conv[0].userUnreadCount,
+            advertiserUnreadCount: !isUser ? 0 : conv[0].advertiserUnreadCount,
+          })
+          .where(eq(conversations.id, input.conversationId));
+
+        return { success: true };
       }),
   }),
 });

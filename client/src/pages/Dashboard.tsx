@@ -220,6 +220,7 @@ export default function Dashboard() {
               { id: "overview", icon: BarChart3, label: "Visão Geral" },
               { id: "profile", icon: User, label: "Perfil" },
               { id: "photos", icon: Camera, label: "Fotos" },
+              { id: "messages", icon: Phone, label: "Mensagens" },
               { id: "plan", icon: Crown, label: "Plano" }
             ].map((tab) => (
               <Button
@@ -584,6 +585,42 @@ export default function Dashboard() {
                     <Video className="w-8 h-8" />
                     <span className="text-sm">Adicionar Vídeo</span>
                   </button>
+                </div>
+              </Card>
+            </div>
+          )}
+
+          {/* Messages Tab */}
+          {activeTab === "messages" && (
+            <div className="space-y-6">
+              <div>
+                <h1 className="text-2xl font-bold">Minhas Mensagens</h1>
+                <p className="text-muted-foreground">Gerencie suas conversas com clientes</p>
+              </div>
+              
+              <Button className="gradient-pink border-0" asChild>
+                <Link href="/mensagens">
+                  <Phone className="w-4 h-4 mr-2" />
+                  Abrir Chat Completo
+                </Link>
+              </Button>
+
+              <Card className="p-6">
+                <h3 className="font-semibold mb-4">Conversas Recentes</h3>
+                <div className="space-y-3">
+                  {[
+                    { name: "João Silva", message: "Qual é seu horário de atendimento?", time: "2 min" },
+                    { name: "Maria Santos", message: "Você atende em qual bairro?", time: "15 min" },
+                    { name: "Pedro Costa", message: "Qual é o valor da hora?", time: "1 hora" }
+                  ].map((conv, i) => (
+                    <div key={i} className="flex items-center justify-between p-3 rounded-lg hover:bg-muted transition-colors">
+                      <div className="flex-1">
+                        <p className="font-medium">{conv.name}</p>
+                        <p className="text-sm text-muted-foreground truncate">{conv.message}</p>
+                      </div>
+                      <p className="text-xs text-muted-foreground">{conv.time}</p>
+                    </div>
+                  ))}
                 </div>
               </Card>
             </div>

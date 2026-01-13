@@ -522,6 +522,12 @@ export default function Profile() {
                     Agendar Encontro
                   </Link>
                 </Button>
+                <Button className="w-full bg-blue-600 hover:bg-blue-700 border-0 h-12 text-lg" asChild>
+                  <Link href="/mensagens">
+                    <MessageCircle className="w-5 h-5 mr-2" />
+                    Enviar Mensagem
+                  </Link>
+                </Button>
                 <Button className="w-full bg-green-600 hover:bg-green-700 border-0 h-12 text-lg" asChild>
                   <a href={`https://wa.me/55${profile.whatsapp}`} target="_blank" rel="noopener noreferrer">
                     <MessageCircle className="w-5 h-5 mr-2" />
@@ -571,6 +577,11 @@ export default function Profile() {
             <Link href={`/agendar/${profile.slug}`}>
               <Calendar className="w-4 h-4 mr-2" />
               Agendar
+            </Link>
+          </Button>
+          <Button className="bg-blue-600 hover:bg-blue-700 border-0" asChild>
+            <Link href="/mensagens">
+              <MessageCircle className="w-4 h-4" />
             </Link>
           </Button>
           <Button className="bg-green-600 hover:bg-green-700 border-0" asChild>

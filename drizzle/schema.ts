@@ -378,3 +378,57 @@ export const appointmentMessages = mysqlTable("appointment_messages", {
 
 export type AppointmentMessage = typeof appointmentMessages.$inferSelect;
 export type InsertAppointmentMessage = typeof appointmentMessages.$inferInsert;
+
+
+// ============================================
+// CONVERSATIONS - Chat conversations between users and advertisers
+// ============================================
+export const conversations = mysqlTable("conversations", {
+  id: int("id").autoincrement().primaryKey(),
+  
+  // Participants
+  userId: int("userId").notNull().references(() => users.id),
+  advertiserId: int("advertiserId").notNull().references(() => advertiserProfiles.id),
+  
+  // Last message info
+  lastMessage: text("lastMessage"),
+  lastMessageAt: timestamp("lastMessageAt"),
+  lastMessageSenderId: int("lastMessageSenderId"),
+  
+  // Unread counts
+  userUnreadCount: int("userUnreadCount").default(0).notNull(),
+  advertiserUnreadCount: int("advertiserUnreadCount").default(0).notNull(),
+  
+  // Timestamps
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Conversation = typeof conversations.$inferSelect;
+export type InsertConversation = typeof conversations.$inferInsert;
+
+// ============================================
+// MESSAGES - Individual chat messages
+// ============================================
+export const messages = mysqlTable("messages", {
+  id: int("id").autoincrement().primaryKey(),
+  conversationId: int("conversationId").notNull().references(() => conversations.id),
+  
+  // Sender info
+  senderId: int("senderId").notNull().references(() => users.id),
+  senderType: mysqlEnum("senderType", ["user", "advertiser"]).notNull(),
+  
+  // Message content
+  content: text("content").notNull(),
+  
+  // Message status
+  isRead: boolean("isRead").default(false).notNull(),
+  readAt: timestamp("readAt"),
+  
+  // Timestamps
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Message = typeof messages.$inferSelect;
+export type InsertMessage = typeof messages.$inferInsert;

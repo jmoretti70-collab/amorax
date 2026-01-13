@@ -14,6 +14,7 @@ import Onboarding from "./pages/Onboarding";
 import MapViewPage from "./pages/MapView";
 import Booking from "./pages/Booking";
 import ScheduleManagement from "./pages/ScheduleManagement";
+import Messages from "./pages/Messages";
 
 function Router() {
   return (
@@ -39,6 +40,9 @@ function Router() {
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/dashboard/agenda" component={ScheduleManagement} />
       <Route path="/anunciar" component={Onboarding} />
+      
+      {/* Messages */}
+      <Route path="/mensagens" component={Messages} />
       
       {/* Auth Routes */}
       <Route path="/login" component={Dashboard} />
