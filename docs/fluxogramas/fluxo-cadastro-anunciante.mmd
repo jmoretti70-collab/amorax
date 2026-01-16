@@ -1,0 +1,34 @@
+flowchart TD
+    A[Anunciante clica em Anunciar] --> B{Está logado?}
+    B -->|Não| C[Redireciona para login]
+    C --> D[Faz login/cadastro]
+    D --> B
+    B -->|Sim| E{Já tem perfil?}
+    E -->|Sim| F[Redireciona para Dashboard]
+    E -->|Não| G[Inicia Onboarding]
+    
+    G --> H[Etapa 1: Dados Básicos]
+    H --> I[Nome, Categoria, Bio]
+    I --> J[Etapa 2: Características]
+    J --> K[Idade, Altura, Peso, etc]
+    K --> L[Etapa 3: Localização]
+    L --> M[Cidade, Bairro, Local próprio]
+    M --> N[Etapa 4: Contato]
+    N --> O[WhatsApp, Telegram]
+    O --> P[Etapa 5: Preços]
+    P --> Q[Valor/hora, Formas pagamento]
+    Q --> R[Etapa 6: Fotos]
+    R --> S[Upload de fotos]
+    S --> T[Etapa 7: Plano]
+    T --> U{Escolhe plano}
+    U -->|Básico| V[R$ 49/mês]
+    U -->|Premium| W[R$ 99/mês]
+    U -->|VIP| X[R$ 199/mês]
+    V --> Y[Checkout Stripe]
+    W --> Y
+    X --> Y
+    Y --> Z{Pagamento OK?}
+    Z -->|Sim| AA[Perfil criado e ativo]
+    Z -->|Não| AB[Erro - Tentar novamente]
+    AB --> Y
+    AA --> AC[Redireciona para Dashboard]

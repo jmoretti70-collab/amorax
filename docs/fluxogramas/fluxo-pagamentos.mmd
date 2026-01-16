@@ -1,0 +1,51 @@
+flowchart TD
+    A[Anunciante escolhe plano] --> B{Qual plano?}
+    B -->|Básico| C[R$ 49/mês]
+    B -->|Premium| D[R$ 99/mês ou trimestral/anual]
+    B -->|VIP| E[R$ 199/mês ou trimestral/anual]
+    
+    C --> F[Seleciona período]
+    D --> F
+    E --> F
+    
+    F --> G{Período}
+    G -->|Mensal| H[Preço cheio]
+    G -->|Trimestral| I[Desconto 15%]
+    G -->|Anual| J[Desconto 33%]
+    
+    H --> K[Cria Checkout Session]
+    I --> K
+    J --> K
+    
+    K --> L[Redireciona para Stripe]
+    L --> M[Usuário insere dados]
+    M --> N{Pagamento}
+    
+    N -->|Cartão| O[Processa cartão]
+    N -->|PIX| P[Gera QR Code PIX]
+    
+    O --> Q{Aprovado?}
+    P --> R{Pago?}
+    
+    Q -->|Sim| S[Webhook: payment_intent.succeeded]
+    Q -->|Não| T[Erro - Tentar novamente]
+    R -->|Sim| S
+    R -->|Não| U[Expira após 30min]
+    
+    T --> L
+    U --> A
+    
+    S --> V[Atualiza plano no BD]
+    V --> W[Define data de expiração]
+    W --> X[Ativa benefícios do plano]
+    X --> Y[Envia confirmação por email]
+    Y --> Z[Redireciona para Dashboard]
+    
+    subgraph Renovação Automática
+        AA[30 dias depois] --> AB[Stripe cobra automaticamente]
+        AB --> AC{Sucesso?}
+        AC -->|Sim| AD[Renova plano]
+        AC -->|Não| AE[Notifica usuário]
+        AE --> AF[3 tentativas]
+        AF -->|Falha| AG[Downgrade para Básico]
+    end

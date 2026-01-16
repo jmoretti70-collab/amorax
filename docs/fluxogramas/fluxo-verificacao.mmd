@@ -1,0 +1,49 @@
+flowchart TD
+    A[Anunciante acessa Dashboard] --> B[Clica em Verificar Perfil]
+    B --> C[Abre modal de verificação]
+    
+    C --> D[Etapa 1: Documentos]
+    D --> E[Upload RG/CPF frente e verso]
+    E --> F{Documento legível?}
+    F -->|Não| G[Solicita novo upload]
+    G --> E
+    F -->|Sim| H[Etapa 2: Selfie]
+    
+    H --> I[Tira selfie segurando documento]
+    I --> J{Rosto visível e documento legível?}
+    J -->|Não| K[Solicita nova selfie]
+    K --> I
+    J -->|Sim| L[Etapa 3: Confirmação]
+    
+    L --> M[Revisa informações]
+    M --> N[Envia para análise]
+    N --> O[Status: Em análise]
+    
+    O --> P[Moderador recebe solicitação]
+    P --> Q{Análise}
+    
+    Q --> R{Documentos válidos?}
+    R -->|Não| S[Rejeita - Documentos inválidos]
+    R -->|Sim| T{Idade >= 18?}
+    
+    T -->|Não| U[Rejeita - Menor de idade]
+    T -->|Sim| V{Selfie confere?}
+    
+    V -->|Não| W[Rejeita - Selfie não confere]
+    V -->|Sim| X[Aprova verificação]
+    
+    S --> Y[Notifica anunciante com motivo]
+    U --> Y
+    W --> Y
+    Y --> Z[Pode tentar novamente]
+    Z --> D
+    
+    X --> AA[Aplica badges ao perfil]
+    AA --> AB[✓ Documentos Verificados]
+    AA --> AC[✓ Idade Verificada]
+    AA --> AD[✓ Fotos Reais]
+    
+    AB --> AE[Notifica anunciante]
+    AC --> AE
+    AD --> AE
+    AE --> AF[Perfil ganha destaque]

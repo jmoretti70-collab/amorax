@@ -14,6 +14,8 @@ import {
   Verified
 } from "lucide-react";
 import { Link } from "wouter";
+import { NotificationBell } from "@/components/NotificationBell";
+import { useAuth } from "@/_core/hooks/useAuth";
 
 const categories = [
   {
@@ -93,6 +95,8 @@ const plans = [
 ];
 
 export default function Home() {
+  const { isAuthenticated } = useAuth();
+  
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -116,6 +120,7 @@ export default function Home() {
           </nav>
 
           <div className="flex items-center gap-3">
+            {isAuthenticated && <NotificationBell />}
             <Button variant="ghost" asChild>
               <Link href="/login">Entrar</Link>
             </Button>

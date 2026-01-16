@@ -1,0 +1,76 @@
+flowchart TB
+    subgraph Usuários["👤 Usuários (Clientes)"]
+        U1[Navegar perfis]
+        U2[Filtrar por categoria]
+        U3[Buscar por localização]
+        U4[Ver perfil completo]
+        U5[Enviar mensagem]
+        U6[Agendar encontro]
+        U7[Avaliar anunciante]
+        U8[Favoritar perfil]
+    end
+    
+    subgraph Anunciantes["💼 Anunciantes"]
+        A1[Criar perfil]
+        A2[Upload de fotos/vídeos]
+        A3[Definir preços]
+        A4[Configurar disponibilidade]
+        A5[Gerenciar agendamentos]
+        A6[Responder mensagens]
+        A7[Solicitar verificação]
+        A8[Assinar plano]
+        A9[Ver estatísticas]
+    end
+    
+    subgraph Sistema["⚙️ Sistema Amorax"]
+        S1[(Banco de Dados)]
+        S2[API tRPC]
+        S3[Autenticação OAuth]
+        S4[Stripe Pagamentos]
+        S5[Google Maps]
+        S6[Notificações]
+        S7[Storage S3]
+    end
+    
+    subgraph Admin["🔧 Administração"]
+        AD1[Moderar perfis]
+        AD2[Aprovar verificações]
+        AD3[Gerenciar planos]
+        AD4[Monitorar métricas]
+        AD5[Suporte ao cliente]
+    end
+    
+    %% Conexões Usuários
+    U1 --> S2
+    U2 --> S2
+    U3 --> S5
+    U4 --> S2
+    U5 --> S2
+    U6 --> S2
+    U7 --> S2
+    U8 --> S2
+    
+    %% Conexões Anunciantes
+    A1 --> S2
+    A2 --> S7
+    A3 --> S2
+    A4 --> S2
+    A5 --> S2
+    A6 --> S2
+    A7 --> S2
+    A8 --> S4
+    A9 --> S2
+    
+    %% Conexões Sistema
+    S2 --> S1
+    S3 --> S1
+    S4 --> S1
+    S6 --> S1
+    S7 --> S1
+    
+    %% Conexões Admin
+    AD1 --> S2
+    AD2 --> S2
+    AD3 --> S4
+    AD4 --> S1
+    AD5 --> S6

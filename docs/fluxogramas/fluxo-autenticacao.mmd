@@ -1,0 +1,17 @@
+flowchart TD
+    A[Usuário acessa Amorax] --> B{Está logado?}
+    B -->|Sim| C[Acesso ao sistema]
+    B -->|Não| D[Clica em Entrar]
+    D --> E[Redirecionado para OAuth]
+    E --> F[Escolhe provedor]
+    F --> G[Google/Apple/Email]
+    G --> H[Autenticação no provedor]
+    H --> I{Sucesso?}
+    I -->|Sim| J[Callback com token]
+    I -->|Não| K[Erro de autenticação]
+    K --> D
+    J --> L[Cria/Atualiza usuário no BD]
+    L --> M[Gera JWT]
+    M --> N[Define cookie de sessão]
+    N --> C
+    C --> O[Acesso às funcionalidades]

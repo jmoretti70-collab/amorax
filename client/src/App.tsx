@@ -15,6 +15,7 @@ import MapViewPage from "./pages/MapView";
 import Booking from "./pages/Booking";
 import ScheduleManagement from "./pages/ScheduleManagement";
 import Messages from "./pages/Messages";
+import Checkout from "./pages/Checkout";
 
 function Router() {
   return (
@@ -43,6 +44,9 @@ function Router() {
       
       {/* Messages */}
       <Route path="/mensagens" component={Messages} />
+      
+      {/* Checkout */}
+      <Route path="/checkout" component={Checkout} />
       
       {/* Auth Routes */}
       <Route path="/login" component={Dashboard} />

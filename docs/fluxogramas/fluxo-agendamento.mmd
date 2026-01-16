@@ -1,0 +1,37 @@
+flowchart TD
+    A[Usuário acessa perfil] --> B[Clica em Agendar Encontro]
+    B --> C{Está logado?}
+    C -->|Não| D[Redireciona para login]
+    D --> C
+    C -->|Sim| E[Abre página de agendamento]
+    
+    E --> F[Seleciona data no calendário]
+    F --> G{Data disponível?}
+    G -->|Não| H[Mostra mensagem de indisponibilidade]
+    H --> F
+    G -->|Sim| I[Carrega horários disponíveis]
+    
+    I --> J[Seleciona horário]
+    J --> K[Seleciona duração]
+    K --> L[1h / 2h / 3h / Pernoite]
+    L --> M[Seleciona local]
+    M --> N[Local próprio / Meu local]
+    N --> O[Adiciona observações]
+    O --> P[Confirma agendamento]
+    
+    P --> Q[Cria registro no BD]
+    Q --> R[Envia notificação ao anunciante]
+    R --> S[Status: Pendente]
+    
+    S --> T{Anunciante responde}
+    T -->|Confirma| U[Status: Confirmado]
+    T -->|Recusa| V[Status: Cancelado]
+    T -->|Não responde| W[Expira após 24h]
+    
+    U --> X[Notifica usuário]
+    V --> Y[Notifica usuário]
+    W --> Z[Notifica ambos]
+    
+    X --> AA[Encontro realizado]
+    AA --> AB[Status: Concluído]
+    AB --> AC[Solicita avaliação]
